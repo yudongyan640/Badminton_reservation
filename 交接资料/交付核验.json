@@ -1,0 +1,162 @@
+{
+  "checkedAt": "2026-10-20T12:16:30.3633557+08:00",
+  "version": "1.2.2",
+  "projectDirectory": "E:\\newdesktop\\羽毛球预约程序",
+  "sourceProgramFilesVerified": 25,
+  "sourceMatchesDesktop": true,
+  "taskCount": 6,
+  "activeTaskCount": 0,
+  "accountPaused": false,
+  "formProofVersion": 3,
+  "payloadMatched": true,
+  "privateRuntimeDataPreserved": true,
+  "privateRuntimeDataIncludedInArchive": false,
+  "tests": {
+    "lastCodeVerification": "2026-10-20",
+    "unitAndLocalHTTP": "66/66 passed",
+    "typeCheck": "passed",
+    "browserFixture": "passed",
+    "calendarFixture": "passed",
+    "rerunForDocumentationOnly": false,
+    "realConflictRetry": "awaiting next authorized live task"
+  },
+  "fileHashes": [
+    {
+      "path": "src\\browser.ts",
+      "sha256": "661A1CB813FAF60608731525723B19B004C33EFC9E0A0C56DB8FFB6364834C44"
+    },
+    {
+      "path": "src\\domain.ts",
+      "sha256": "A471854F9656B37E03D8897CC8CDE5B6A8B22C66CF4E1C54EB08F4B2015D2FA8"
+    },
+    {
+      "path": "src\\engine.ts",
+      "sha256": "2BAAA5118D62066128DB2D7E47882B5E42C0BD0E2C051C9469E3C6C47691CB46"
+    },
+    {
+      "path": "src\\instance.ts",
+      "sha256": "F6688314BA454C14D22D061D04F9399C55D61260892C47B92875F31E0320A818"
+    },
+    {
+      "path": "src\\server.ts",
+      "sha256": "FB86FC04D03B9C3C1ED2127CA04EFFCC20D577D5842E31EE2A9929A97FDCDBBF"
+    },
+    {
+      "path": "src\\store.ts",
+      "sha256": "3F9B10935EDB4CEAE0D35D3DACE2DD4D3DE497E4D7A2952DBEAD5A5440B07869"
+    },
+    {
+      "path": "public\\app.js",
+      "sha256": "1C074C643FC6C5171102D850EA26354299B8A6BFAFB0297EDDF80DDA3B4616B2"
+    },
+    {
+      "path": "public\\index.html",
+      "sha256": "FE3079CC13A9D1D41BF5A58BAFDDCDAF768A69E8D96E7D546FF30C3CC7B8ACC7"
+    },
+    {
+      "path": "public\\style.css",
+      "sha256": "766BE200BDEB50EBF9209C78AC24240F25FE387A5A68C2D26638DF69EC72F7E3"
+    },
+    {
+      "path": "docs\\1.1.1真实拦截验证.json",
+      "sha256": "81EB5282EF38F838711871701D736A1CAEA0E9F4F68CD920C438DB01E129CBBD"
+    },
+    {
+      "path": "docs\\1.2.0日历查询验证.json",
+      "sha256": "F2A01EAE902B6E08C9994C6BAC73A156F18AEEFE0A68718D6C4996F2A8D85C73"
+    },
+    {
+      "path": "docs\\1.2.1零点复核.json",
+      "sha256": "451735CE042B23F6A6DAE60A985830CE5E8AFD521AC2296A110E3CB91711897D"
+    },
+    {
+      "path": "docs\\1.2.2冲突复核.json",
+      "sha256": "4BF1AB5BE4B5E6A21EF6736609C094596F89FC53020B2762CE7FF321F0ECB6F6"
+    },
+    {
+      "path": "docs\\网站适配与验证.md",
+      "sha256": "416FAA62BE3B6D53F0DFA6679E857D94C86D1E0A35A9E788BDA7BD8CE488734B"
+    },
+    {
+      "path": "scripts\\calendar-smoke.ts",
+      "sha256": "20C0848249EE0A7F3184EF37ACEDACC72291CE5B0467D9A7C95006D37A7C31FF"
+    },
+    {
+      "path": "scripts\\diagnose-login.ts",
+      "sha256": "4EC9143B624020913DD01377281CF70E1C8F21009296CF7661B455FF65CDD47B"
+    },
+    {
+      "path": "scripts\\smoke.ts",
+      "sha256": "7A92D09467C7C6804F323494DF7FE81C01F7893183DC7F9F72530B9B6C2CF224"
+    },
+    {
+      "path": "scripts\\verify-live-form.ts",
+      "sha256": "82E1B4551F26DA4AA7292327D1CE5CEE638EBEA1BB0E1043A7D0A0086773869A"
+    },
+    {
+      "path": "tests\\browser.test.ts",
+      "sha256": "7FDF759A817A2A66A0816E74BA48420E563C6EE84C59B1EA46BCAFAD8E23C793"
+    },
+    {
+      "path": "tests\\calendar.test.ts",
+      "sha256": "ACC59D53C74BB3EDAC3BD4E28DF50E1345BA29C6709DDB31F685AAD2CD2FD978"
+    },
+    {
+      "path": "tests\\domain.test.ts",
+      "sha256": "EADD4179D2312FE7FC65A4CEC8CD3E34338D29D660355614564E58678D3FAC85"
+    },
+    {
+      "path": "tests\\engine.test.ts",
+      "sha256": "164481FA7333257E7B38DA30A50BF13CF4D4ABE71A6B3E60AB297A333D991C2D"
+    },
+    {
+      "path": "tests\\lock.test.ts",
+      "sha256": "E2026A94D578558D5CC092C15231CD91F9E020C1E90F937CF11EEA68A3B8320A"
+    },
+    {
+      "path": "tests\\partial.test.ts",
+      "sha256": "BD56C5ACC775BEA683A50E7F2873EC1718161391AA6E33862DBE6456259FC566"
+    },
+    {
+      "path": "tests\\server.test.ts",
+      "sha256": "E2CAF6495227D9ADFB71ED7F4C5FED37A6426D63BA11FA3B7CD613044700C108"
+    },
+    {
+      "path": "项目交接.md",
+      "sha256": "8E8E29D9ACAE89741D109F4242627D1A519309B05EC02B8700C9A9DC36B178A2"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "78093B60013720C533C8AB30EC1475D5F12AF680DB67B423DEBF84537522B0B8"
+    },
+    {
+      "path": "使用说明.md",
+      "sha256": "3DEF7E67A3CBB3F7B115FE3BDF48D87268B65CB96EBE3873C90704C23C831161"
+    },
+    {
+      "path": "验证结果.md",
+      "sha256": "B26F7EC26E6FA5DA0C8099990AC6E5883E3E9159BB637156CF971AE846BB9D24"
+    },
+    {
+      "path": "package.json",
+      "sha256": "B5D3FC0709E8CBE12D3DB14258D647A8C70997A4B9427E92D67BABC897E371C2"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "105D06E29D763DB1FD90D051B0AF7AB76D662F08BE0988B6F727635428D63038"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "4B1A9582E2EC9C5663A960D447A0966557B1A58FEC12E001274F7EF97DB518F8"
+    },
+    {
+      "path": "启动预约程序.cmd",
+      "sha256": "8B8FC252709EF336AA66DBF3AB3BCE1E7EECE8CDA38ED7CE852C7A4601E10EAF"
+    },
+    {
+      "path": "示例任务.json",
+      "sha256": "924EA2C339FC9E2A16D9381F426D932B8B8AE044AFFA25B96AC1F250EE239D62"
+    }
+  ],
+  "archiveSha256": "5361272126E725BB8F29A336FA2DFF59B6451C2EDF39EE259A14E7278E3581DF"
+}

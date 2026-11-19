@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-18T16:17:39.936Z",
+  "date": "2026-10-20",
+  "start": "22:00",
+  "end": "23:00",
+  "accountMatched": true,
+  "currentOwnOverlappingBookings": 1,
+  "userConfirmedManualBooking": true,
+  "manualBookings": [
+    {
+      "begin": "2026-10-20 22:30:00",
+      "end": "2026-10-20 23:00:00",
+      "roomId": "6misbbNPhfeXrg2nnd9cSL"
+    }
+  ],
+  "originalResponse": {
+    "httpStatus": 200,
+    "businessCode": 200,
+    "serverMessage": "不能预订超过2天的会议"
+  },
+  "oldLocalEarlyMs": 347,
+  "newServerOffsetMs": -56.5,
+  "newServerUncertaintyMs": 98,
+  "forwardedBookingWrites": 0,
+  "blockedWrites": 0,
+  "localTaskStopped": true,
+  "accountPauseCleared": true
+}

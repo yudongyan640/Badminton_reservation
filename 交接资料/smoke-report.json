@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-20T04:09:37.968Z",
+  "ui": "passed",
+  "mobile": "passed",
+  "loggedInWithoutCsrfCookie": "passed",
+  "genuineAdapterRehearsal": "passed against local fixture",
+  "nativeHeaderAndPayloadParity": "passed against local fixture",
+  "serverErrorDiagnostic": "passed",
+  "boundConflictRule": "passed against local fixture",
+  "popupWriteGuard": "passed",
+  "accountChangeBlocked": "passed",
+  "intercepted": 4,
+  "forwarded": 0,
+  "actualSiteBookingCreated": false,
+  "pageErrors": []
+}

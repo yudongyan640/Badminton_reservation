@@ -1,0 +1,31 @@
+{
+  "name": "badminton-booker",
+  "version": "1.2.20",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test --test-concurrency=1 tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "smoke": "node scripts/smoke.ts",
+    "smoke:calendar": "node scripts/calendar-smoke.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-10-18T02:23:11.001Z",
+  "cases": [
+    {
+      "date": "2026-10-19",
+      "start": "22:00",
+      "end": "23:00",
+      "payloadFields": 20,
+      "payloadMatched": true,
+      "headerNames": [
+        "accept",
+        "content-type",
+        "x-hys-platform",
+        "x-lang",
+        "x-authenticity-token",
+        "x-hys-session"
+      ],
+      "headersMatched": true,
+      "sessionFromCurrentPage": true
+    },
+    {
+      "date": "2026-10-19",
+      "start": "22:30",
+      "end": "23:00",
+      "payloadFields": 20,
+      "payloadMatched": true,
+      "headerNames": [
+        "accept",
+        "content-type",
+        "x-hys-platform",
+        "x-lang",
+        "x-authenticity-token",
+        "x-hys-session"
+      ],
+      "headersMatched": true,
+      "sessionFromCurrentPage": true
+    },
+    {
+      "date": "2026-10-18",
+      "start": "22:30",
+      "end": "23:00",
+      "payloadFields": 20,
+      "payloadMatched": true,
+      "headerNames": [
+        "accept",
+        "content-type",
+        "x-hys-platform",
+        "x-lang",
+        "x-authenticity-token",
+        "x-hys-session"
+      ],
+      "headersMatched": true,
+      "sessionFromCurrentPage": true
+    }
+  ],
+  "nativeIntercepted": 3,
+  "adapterIntercepted": 3,
+  "forwarded": 0,
+  "ownRecords": 0,
+  "formVersion": 3,
+  "bookingCreated": false
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>场边 · 羽毛球预约</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header class="topbar"><div class="brand"><svg width="36" height="36" viewBox="0 0 40 40" aria-hidden="true"><path d="M9 7L26 11 30 28 24 34 7 17Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 7L25 29M18 9L25 29M28 19L25 29M7 17L25 29M25 29L30 28" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M24 34L30 28" stroke="currentColor" stroke-width="4"/></svg><span>场边<span class="brand-sub">羽毛球预约</span></span></div><div class="clock"><span>北京时间</span><time id="clock">--:--:--</time></div></header>
+<main>
+<section class="intro"><div><h1>安排你的下一场球。</h1><p>选好日期与时段，提前登录，到点自动尝试预约。</p></div><div class="login-tools"><span id="login-status" class="pill">尚未检查登录</span><button id="login" class="secondary">打开扫码登录</button><button id="check" class="quiet">检查登录</button></div></section>
+<div id="notice" class="notice" role="status">首次使用，请打开扫码登录，再检查登录状态。默认使用演练模式。</div>
+<section class="calendar-panel" aria-labelledby="calendar-heading">
+<div class="calendar-header"><div><h2 id="calendar-heading">我的有效预约 <span id="calendar-count"></span></h2><p class="calendar-subtitle">从场馆网站同步，仅显示本人当前有效的预约。</p></div><button id="calendar-refresh" type="button" class="secondary">刷新预约</button></div>
+<div id="calendar-next" class="calendar-next" role="status">正在读取当前预约…</div>
+<div class="calendar-toolbar"><div class="calendar-navigation"><button id="calendar-prev" class="quiet" type="button" aria-label="上个月">‹ 上月</button><h3 id="calendar-month"></h3><button id="calendar-next-month" class="quiet" type="button" aria-label="下个月">下月 ›</button><button id="calendar-today" class="quiet" type="button">本月</button></div><p id="calendar-sync" class="calendar-sync" role="status"></p></div>
+<div class="calendar-scroll" tabindex="0" aria-label="预约月历，小屏幕可左右滑动"><div id="calendar-grid" class="calendar-grid" aria-label="本人有效预约月历"></div></div>
+<p class="calendar-help">在网站取消预约后，点击“刷新预约”或刷新本页即可更新。下方任务卡保留执行历史。手机上可左右滑动月历。</p>
+</section>
+<div class="workspace">
+<aside class="composer"><h2>新建预约任务</h2><form id="task-form">
+<label for="date">打球日期</label><input id="date" name="date" type="date" required>
+<div class="time-pair"><div><label for="start">开始时间</label><select id="start" name="start"></select></div><span>至</span><div><label for="end">结束时间</label><select id="end" name="end"></select></div></div>
+<p class="field-help">10:00–23:00，每次 30 分钟至 2 小时。</p>
+<label for="court">场地选择</label><select id="court"><option value="1,2">任一场地，先场1再场2</option><option value="2,1">任一场地，先场2再场1</option><option value="1">只预约场1（远离瑞幸）</option><option value="2">只预约场2（靠近瑞幸）</option></select>
+<p class="field-help">同一时段想约两块场地：分别保存两条任务，各选“只预约场1”和“只预约场2”，都启用后会到点按创建顺序连续提交。</p>
+<label for="subject">预约主题</label><input id="subject" value="1" maxlength="80" required>
+<fieldset class="modes"><legend>执行方式</legend><label class="mode-choice"><input type="radio" name="mode" value="dry-run" checked><span>演练<span>拦截请求，不预约场地</span></span></label><label class="mode-choice"><input id="live-mode" type="radio" name="mode" value="live" disabled><span>正式预约<span id="live-caption">先完成网页表单演练</span></span></label></fieldset>
+<div id="release-preview" class="release-preview">请选择预约日期</div>
+<button class="primary wide" type="submit">保存任务</button><p class="field-help">保存后可立即演练，或启用到点执行。</p>
+</form><div class="import-row"><label class="file-button" for="import">导入聊天生成的任务</label><input id="import" type="file" accept=".json,application/json" hidden><button id="example" class="quiet" type="button">下载示例</button></div>
+</aside>
+<section class="queue"><div class="section-top"><h2>预约任务 <span id="count">0</span></h2><label class="sound"><input type="checkbox" id="sound">声音提示</label></div><div id="tasks" aria-live="polite"></div><div id="empty" class="empty"><div class="court-lines" aria-hidden="true"><i></i><i></i><i></i></div><h3>还没有待办的球局</h3><p>在左侧添加任务，或导入已准备好的任务文件。</p></div>
+<div class="guidance"><p><strong>完整优先，部分也保留</strong><br>只抢到半小时也会保留，显示实际时段后立即停止。不补订、不取消、不继续换场。</p><p><strong>零点由本机程序执行</strong><br>电脑需保持开机、联网，程序和专用 Edge 持续运行。请在系统电源设置中关闭自动睡眠。</p></div>
+<details class="details"><summary>预约规则与当前验证状态</summary><p>两天包含当天：预约日的前一天 00:00 开放。以放号前检查到的场馆规则为准。签到仍需按场馆要求完成。</p><p id="verification">尚未连接场馆。</p><p>正式预约前完成网页表单演练。有冲突时网站可能只预约剩余时段；程序核对到任何实际预约就保留并停止，结果不明则暂停。</p><p>同一时段两块场地：分别建两条只约一块场地的任务即可。一条结果不明只暂停后续任务，同轮另一块场地仍会提交；逐条核对后才恢复正式任务。</p></details>
+</section></div>
+<footer>场地：19-羽球场1 / 19-羽球场2 <span id="instance-label">任务与登录资料保存在这台电脑</span></footer>
+</main><div id="toast" role="alert" hidden></div><noscript>请在浏览器中启用 JavaScript 后使用此控制页。</noscript>
+</body></html>

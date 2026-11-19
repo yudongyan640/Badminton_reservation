@@ -1,0 +1,173 @@
+{
+  "checkedAt": "2026-11-02T23:39:13.704+08:00",
+  "version": "1.2.13",
+  "programFilesVerified": 13,
+  "testFilesVerified": 7,
+  "docFilesVerified": 6,
+  "taskCount": 41,
+  "activeTasks": 0,
+  "accountPaused": false,
+  "pendingConfirm": 0,
+  "siteSnapshotSampledAt": 1793631187576,
+  "siteSubmissionReady": true,
+  "unitTestsPassed": 109,
+  "typeCheckPassed": true,
+  "browserFixturePassed": true,
+  "calendarFixturePassed": true,
+  "intercepted": 4,
+  "forwarded": 0,
+  "actualSiteBookingCreated": false,
+  "realBookingWrites": 0,
+  "pageErrors": [],
+  "runningServicePid": 33448,
+  "runningServiceVersion": "1.2.12（旧代码，待重启切换）",
+  "privateRuntimeFilesPreserved": true,
+  "archiveSha256": "F63D26D35D502BD697C225DBD0FA9B63FDB8FEBFB97448A08364319B53E1A2ED",
+  "scope": "1.2.13 同一时段两块场地（多场地同时预约）；真实零点效果未验证；本轮无真实创建/取消预约",
+  "fileHashes": [
+    {
+      "path": "docs\\1.1.1真实拦截验证.json",
+      "sha256": "81EB5282EF38F838711871701D736A1CAEA0E9F4F68CD920C438DB01E129CBBD"
+    },
+    {
+      "path": "docs\\1.2.0日历查询验证.json",
+      "sha256": "F2A01EAE902B6E08C9994C6BAC73A156F18AEEFE0A68718D6C4996F2A8D85C73"
+    },
+    {
+      "path": "docs\\1.2.1零点复核.json",
+      "sha256": "451735CE042B23F6A6DAE60A985830CE5E8AFD521AC2296A110E3CB91711897D"
+    },
+    {
+      "path": "docs\\1.2.2冲突复核.json",
+      "sha256": "4BF1AB5BE4B5E6A21EF6736609C094596F89FC53020B2762CE7FF321F0ECB6F6"
+    },
+    {
+      "path": "docs\\1.2.8预检截止修复.md",
+      "sha256": "94EC1F796C71D80360082FC082002E5AA4DF96B2468387960ED1917A0D4C57CB"
+    },
+    {
+      "path": "docs\\网站适配与验证.md",
+      "sha256": "3C4D92157737DD30B04D4CD54ACA469307729F7E14D95BD9B97ADD77A88A2A10"
+    },
+    {
+      "path": "public\\app.js",
+      "sha256": "42FF13A5E628516F1DD581EF7236DBC8CE4D49EFEDD5D0D1EEFB5DE9DC9032C0"
+    },
+    {
+      "path": "public\\index.html",
+      "sha256": "1FCA188259FF8235F8154A8C2E750899330985D614A330499F2B570B7B724CA7"
+    },
+    {
+      "path": "public\\style.css",
+      "sha256": "766BE200BDEB50EBF9209C78AC24240F25FE387A5A68C2D26638DF69EC72F7E3"
+    },
+    {
+      "path": "scripts\\calendar-smoke.ts",
+      "sha256": "20C0848249EE0A7F3184EF37ACEDACC72291CE5B0467D9A7C95006D37A7C31FF"
+    },
+    {
+      "path": "scripts\\diagnose-login.ts",
+      "sha256": "4EC9143B624020913DD01377281CF70E1C8F21009296CF7661B455FF65CDD47B"
+    },
+    {
+      "path": "scripts\\smoke.ts",
+      "sha256": "877126D666F94BC9A20530D0276B17A6BA5022378D491E21F2253915F2DDF83D"
+    },
+    {
+      "path": "scripts\\verify-live-form.ts",
+      "sha256": "82E1B4551F26DA4AA7292327D1CE5CEE638EBEA1BB0E1043A7D0A0086773869A"
+    },
+    {
+      "path": "src\\browser.ts",
+      "sha256": "8CC8A480A4A21099066799971BD22B7A14923B2D7597A4CAFBEC0ADC585C1817"
+    },
+    {
+      "path": "src\\domain.ts",
+      "sha256": "6B1384C209855F1A6694BCF01DF17D2065E2DD1E115D1678EF4436D3A7A97579"
+    },
+    {
+      "path": "src\\engine.ts",
+      "sha256": "8500CF97BBBB2DC761DEE853ED229BCB6D3A3D54A81FC82A996161CF62033506"
+    },
+    {
+      "path": "src\\instance.ts",
+      "sha256": "F6688314BA454C14D22D061D04F9399C55D61260892C47B92875F31E0320A818"
+    },
+    {
+      "path": "src\\server.ts",
+      "sha256": "FB86FC04D03B9C3C1ED2127CA04EFFCC20D577D5842E31EE2A9929A97FDCDBBF"
+    },
+    {
+      "path": "src\\store.ts",
+      "sha256": "F2538A017FFF47DA53C606D516752EC52309C88300CD6E065F60405621272354"
+    },
+    {
+      "path": "tests\\browser.test.ts",
+      "sha256": "2261977792FAC74616FA67F1A196924CAD394066DD13C71DD229AA4B3708A837"
+    },
+    {
+      "path": "tests\\calendar.test.ts",
+      "sha256": "ACC59D53C74BB3EDAC3BD4E28DF50E1345BA29C6709DDB31F685AAD2CD2FD978"
+    },
+    {
+      "path": "tests\\domain.test.ts",
+      "sha256": "EADD4179D2312FE7FC65A4CEC8CD3E34338D29D660355614564E58678D3FAC85"
+    },
+    {
+      "path": "tests\\engine.test.ts",
+      "sha256": "20EA41DD2D600E04C7A4A128F223B1A213BDB3F11EBD9D876A374924C357BB3A"
+    },
+    {
+      "path": "tests\\lock.test.ts",
+      "sha256": "E2026A94D578558D5CC092C15231CD91F9E020C1E90F937CF11EEA68A3B8320A"
+    },
+    {
+      "path": "tests\\partial.test.ts",
+      "sha256": "BD56C5ACC775BEA683A50E7F2873EC1718161391AA6E33862DBE6456259FC566"
+    },
+    {
+      "path": "tests\\server.test.ts",
+      "sha256": "E2CAF6495227D9ADFB71ED7F4C5FED37A6426D63BA11FA3B7CD613044700C108"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "D3906318E0E0428B976485D786D78D9772F00F49AD116FD4E5AA92B084753387"
+    },
+    {
+      "path": "登录修复说明.md",
+      "sha256": "E6B0131AA5A5E33513D1D923AAB080A06ABE767839C6D434260FF6305AF9B693"
+    },
+    {
+      "path": "界面预览.png",
+      "sha256": "0D9E947CEEA142B47C93A1D7F451F24F54A0A05736EFE49B9C355B2CBD608D8D"
+    },
+    {
+      "path": "启动预约程序.cmd",
+      "sha256": "8B8FC252709EF336AA66DBF3AB3BCE1E7EECE8CDA38ED7CE852C7A4601E10EAF"
+    },
+    {
+      "path": "使用说明.md",
+      "sha256": "2D2A62968914A4C8A52956C8DCA25A8339160A2DF0CACF1181B42C8EADDA343D"
+    },
+    {
+      "path": "示例任务.json",
+      "sha256": "924EA2C339FC9E2A16D9381F426D932B8B8AE044AFFA25B96AC1F250EE239D62"
+    },
+    {
+      "path": "验证结果.md",
+      "sha256": "4BE5B07E94739CFF849A65A8B1D59885D2B2A7C6DBB866E1EE67BFF5DA51321D"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "3D8DFD77AAD258642E0CF8FEAD1596CB323C064A7604DDE823500806875428CB"
+    },
+    {
+      "path": "package.json",
+      "sha256": "8F6E23A04FD38CE1FD4D2107DFF130F32896D1E2C72F0C3DA706521EA5B21CA6"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "4B1A9582E2EC9C5663A960D447A0966557B1A58FEC12E001274F7EF97DB518F8"
+    }
+  ]
+}

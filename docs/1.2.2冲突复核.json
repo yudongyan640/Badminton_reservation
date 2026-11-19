@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-20T04:09:55.503Z",
+  "date": "2026-10-21",
+  "target": "22:00–23:00",
+  "originalLocalSendDelayMs": 354,
+  "responseMs": 947,
+  "originalAttempts": 1,
+  "observedDenial": {
+    "httpStatus": 200,
+    "businessCode": 200,
+    "conflictingInterval": "22:00–22:30"
+  },
+  "originalEnvelopeFlagsRecorded": false,
+  "accountMatched": true,
+  "userConfirmedManualBooking": true,
+  "manualBookingPreserved": {
+    "date": "2026-10-21",
+    "start": "22:30",
+    "end": "23:00",
+    "court": 1,
+    "subject": "1"
+  },
+  "forwardedBookingWrites": 0,
+  "blockedWrites": 0,
+  "originalTaskStopped": true,
+  "accountPauseCleared": true,
+  "retryRule": "只匹配已绑定场馆的success:false、无data、精确同日重叠时段冲突；其他响应仍先核对并暂停"
+}

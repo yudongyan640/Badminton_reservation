@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-18T02:39:27.989Z",
+  "range": {
+    "start": "2026-10-01",
+    "end": "2026-10-31"
+  },
+  "monthMatchesDaily": true,
+  "cancelledHistoricalReceiptExcluded": true,
+  "activeBookings": [
+    {
+      "court": "2",
+      "date": "2026-10-19",
+      "start": "22:30",
+      "end": "23:00",
+      "subject": "1"
+    }
+  ],
+  "blockedWrites": 0,
+  "forwardedBookingWrites": 0
+}

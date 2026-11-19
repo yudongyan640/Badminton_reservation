@@ -1,0 +1,80 @@
+# ------------------------------------------------------------
+# Private runtime data: login profiles, cookies, tokens, tasks, freeze state
+# ------------------------------------------------------------
+data/
+data-b/
+data*/
+edge-profile/
+**/edge-profile/
+.env
+.env.*
+!.env.example
+secrets/
+*.cookie
+*.cookies
+cookies.txt
+tokens.json
+*.token
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ------------------------------------------------------------
+# Dependencies, local caches and generated artifacts
+# ------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.cache/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+logs/
+metrics/
+outputs/
+test-results/
+coverage/
+playwright-report/
+.codegraph/
+dsh-acl-recovery/
+*.log
+*.tmp
+*.bak
+*.swp
+*.tsbuildinfo
+dist/
+build/
+out/
+tmp/
+temp/
+
+# ------------------------------------------------------------
+# Model weights and large binaries / archives
+# ------------------------------------------------------------
+*.pth
+*.pt
+*.onnx
+*.ckpt
+*.safetensors
+*.h5
+*.pb
+*.npy
+*.npz
+*.bin
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+
+# ------------------------------------------------------------
+# OS / editor temporary files
+# ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

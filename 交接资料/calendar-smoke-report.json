@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-10-20T04:08:03.350Z",
+  "actualHalfHourVisible": true,
+  "cancellationRefresh": true,
+  "historySeparate": true,
+  "networkFailureNotEmptySuccess": true,
+  "crossYearNavigation": true,
+  "mobileNoOverflow": true,
+  "realBookingWrites": 0,
+  "pageErrors": []
+}
