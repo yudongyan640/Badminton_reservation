@@ -15,7 +15,8 @@ export interface Site {
 interface Clock {now:()=>number;sleep:(ms:number)=>Promise<unknown>;monotonic:()=>number;}
 interface Prepared {snapshot:Snapshot;records:Booking[];monoAt:number;date:string;accountId:string;}
 interface SlotChoice {id:string;index:number;slot:{minutes:number;start:string;end:string};}
-// 一条任务在一次放号批次里的执行上下文。零点同一轮的多条任务各自持有上下文，串行提交、交错首发。
+// 一条任务在一次放号批次里的执行上下文。同一轮到点的多条任务各自持有上下文；
+// 1.2.21起时段互不重叠的任务首波并发，其余任务与后续重试仍串行。
 interface ExecContext {
   t:Task;s:Snapshot;records:Booking[];targetRooms:string[];allowedRooms:string[];
   conflictHints:Booking[];rejectedSlots:Set<string>;conflictedRooms:Set<string>;
@@ -44,6 +45,10 @@ const DEGRADED_LIST_TIMEOUT_MS=300;
 const ZERO_RECHECK_TIMEOUT_MS=1_500;
 // 同一放号时刻的多条任务共用预检结果的时效：只复用同一轮预检刚拿到的快照，避免陈旧占用。
 const PREPARE_SHARE_MS=3_000;
+// 1.2.21：同一批到点任务里，时段互不重叠的任务首刀最多两条并发（互不等待响应），
+// 让第二条不再损失“第一条的响应时间”。时段重叠的任务（含同时段多场地）仍严格串行，
+// 因为平台按账号拒绝同一时间的第二个会议；首波之外的重试/核对也仍是单在途、100毫秒间隔。
+const MAX_PARALLEL_FIRST_SHOTS=2;
 function errorText(e:unknown):string{
   const raw=(e instanceof Error?e.message:String(e)).replace(/https?:\/\/\S+/gi,'[链接已隐藏]').replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi,'[邮箱已隐藏]').replace(/\s+/g,' ').trim();
   return (raw||'未知错误').slice(0,200);
@@ -55,7 +60,8 @@ export class Engine {
   private timer?:ReturnType<typeof setTimeout>; private deadlines=new Map<string,number>();
   private prechecked=new Map<string,number>(); private stopped=true;
   private prepared=new Map<string,Prepared>();
-  // 跨任务统一的提交节奏：同一账号任意两次提交起始间隔≥100毫秒（多场地同时段时也不能贴着发）。
+  // 跨任务统一的提交节奏：同一账号任意两次提交起始间隔≥100毫秒；
+  // 唯一例外是1.2.21的首波并发（仅限时段互不重叠的任务，最多两条，见MAX_PARALLEL_FIRST_SHOTS）。
   private lastSubmitMono=-Infinity;
   private timeAnchor?:{serverAt:number;monoAt:number;uncertaintyMs?:number};
   private localAnchor?:{at:number;monoAt:number};
@@ -310,9 +316,10 @@ export class Engine {
     return ctx;
   }
   // 发一次提交（受全局100毫秒节奏与单在途约束），记录响应与耗时；结果交给 processResult 处理。
-  private async submitAttempt(ctx:ExecContext):Promise<AttemptResult>{
+  // parallel=true 仅用于1.2.21首波：互不重叠的任务同时发出，不等待彼此响应，也不做100毫秒节流。
+  private async submitAttempt(ctx:ExecContext,parallel=false):Promise<AttemptResult>{
     const t=ctx.t;
-    const wait=Math.max(0,100-(this.clock.monotonic()-ctx.last),100-(this.clock.monotonic()-this.lastSubmitMono));
+    const wait=parallel?0:Math.max(0,100-(this.clock.monotonic()-ctx.last),100-(this.clock.monotonic()-this.lastSubmitMono));
     if(wait)await this.clock.sleep(wait);
     const choice=ctx.choices[ctx.courtIndex];
     ctx.submitted=true;
@@ -417,9 +424,21 @@ export class Engine {
     }
     this.failPrecheck(t,e??ctx.error);
   }
+  // 首波并发只取创建顺序上的前缀：一旦遇到与已选任务时段重叠、或已到并发上限，后续任务全部回到串行，
+  // 既保持“按创建顺序”的可预期性，也避免把可能触发平台“同一时间有其它会议”的两条请求并发发出。
+  private planFirstWave(contexts:ExecContext[]):{wave:ExecContext[];serial:ExecContext[]}{
+    const wave:ExecContext[]=[];
+    for(const ctx of contexts){
+      if(wave.length>=MAX_PARALLEL_FIRST_SHOTS)break;
+      if(wave.some(w=>overlaps(w.t,ctx.t)))break;
+      wave.push(ctx);
+    }
+    return {wave,serial:contexts.slice(wave.length)};
+  }
   async execute(id:string):Promise<void>{await this.executeTasks([id]);}
-  // 同一放号时刻的多条任务在同一轮执行：各自先打第一刀（按创建顺序），再处理结果与重试，
-  // 最后统一核对。这样第二条任务不会被第一条的核对/重试拖慢，同时仍保持单在途与100毫秒间隔。
+  // 同一放号时刻的多条任务在同一轮执行：时段互不重叠的任务首波并发（最多2条），其余任务在首波结束后
+  // 按创建顺序串行补发第一刀，再处理结果与重试，最后统一核对。首波只放开“互不等待响应”这一点，
+  // 之后的重试/核对仍严格单在途、100毫秒间隔，各任务仍各自受20次/15秒窗口限制。
   async executeTasks(ids:string[]):Promise<void>{
     const tasks=ids.map(id=>this.store.get(id)).filter(t=>t.status==='scheduled'&&!this.blocked(t));
     if(!tasks.length||this.busy)return;
@@ -432,8 +451,16 @@ export class Engine {
         try{const ctx=await this.prepareExecution(t);if(ctx)contexts.push(ctx);}
         catch(e){this.failPrecheck(t,e);}
       }
-      // 1) 交错首发：每条任务先各提交一次，再处理结果；第二条只等第一刀响应+100毫秒。
-      for(const ctx of contexts){try{await this.submitAttempt(ctx);}catch(e){ctx.error=e;}}
+      // 1) 首波：时段互不重叠（最多2条）的任务并发发出首个创建请求，互不等待响应；
+      //    其余任务在首波结束后按创建顺序串行补发。这样第二条不再被第一条的响应时间拖慢。
+      const {wave,serial}=this.planFirstWave(contexts);
+      if(wave.length>1){
+        for(const ctx of wave)this.store.event(ctx.t,'first-wave-parallel');
+        await Promise.all(wave.map(async ctx=>{try{await this.submitAttempt(ctx,true);}catch(e){ctx.error=e;}}));
+      }else{
+        for(const ctx of wave){try{await this.submitAttempt(ctx);}catch(e){ctx.error=e;}}
+      }
+      for(const ctx of serial){try{await this.submitAttempt(ctx);}catch(e){ctx.error=e;}}
       for(const ctx of contexts){if(ctx.error)continue;try{await this.processResult(ctx);}catch(e){ctx.error=e;}}
       // 2) 重试阶段：按创建顺序轮流给每条任务一次提交机会，各自受自己的20次/15秒窗口限制。
       while(contexts.some(c=>!c.done&&!c.pendingVerify&&!c.error)){

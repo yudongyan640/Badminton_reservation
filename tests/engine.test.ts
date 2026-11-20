@@ -581,6 +581,32 @@ test('过早提交的日期上限拒绝会记录重试事件',()=>setup(async(s,
 }));
 
 
+test('1.2.21首波并发：时段不重叠的两条任务同时发出首刀，不等待彼此响应',()=>setup(async(s,e,site)=>{
+  const a=s.add({...input,start:'19:00',end:'19:30',courtPriority:['1']});
+  const b=s.add({...input,start:'19:30',end:'20:00',courtPriority:['1']});
+  await e.arm(a.id);await e.arm(b.id);
+  const sent:string[]=[];let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});
+  site.submit=async(t,r)=>{sent.push(r);await gate;site.records.push({...booking(t,r),id:'b-'+t.id});return {kind:'created'};};
+  const run=e.executeTasks([a.id,b.id]);
+  await new Promise<void>(r=>setImmediate(r));
+  assert.equal(sent.length,2,'两条任务的首刀都应在任何响应返回前发出');
+  release();await run;
+  assert.equal(a.status,'succeeded');assert.equal(b.status,'succeeded');
+}));
+test('1.2.21首波并发只放行时段不重叠的任务：同时段两块场地仍串行',()=>setup(async(s,e,site)=>{
+  const a=s.add({...input,start:'19:00',end:'20:00',courtPriority:['1']});
+  const b=s.add({...input,start:'19:00',end:'20:00',courtPriority:['2']});
+  await e.arm(a.id);await e.arm(b.id);
+  const sent:string[]=[];let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});
+  site.submit=async(t,r)=>{sent.push(r);await gate;site.records.push({...booking(t,r),id:'b-'+t.id});return {kind:'created'};};
+  const run=e.executeTasks([a.id,b.id]);
+  await new Promise<void>(r=>setImmediate(r));
+  assert.equal(sent.length,1,'时段重叠时第二条必须等第一条响应');
+  release();await run;
+  assert.equal(sent.length,2);
+  assert.deepEqual(sent.slice(0,2),[COURTS['1'].id,COURTS['2'].id]);
+  assert.equal(a.status,'succeeded');assert.equal(b.status,'succeeded');
+}));
 test('不同场地的重叠任务可分别启用，同轮交错首发且共用预检',()=>setup(async(s,e,site)=>{
   const a=s.add({...input,courtPriority:['1']});
   const b=s.add({...input,end:'21:00',courtPriority:['2']});
