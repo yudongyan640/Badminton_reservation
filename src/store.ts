@@ -38,8 +38,9 @@ export class Store {
     const tasks=list.map(validateTask);this.state.tasks.push(...tasks);this.save();return tasks;
   }
   get(id:string):Task{const t=this.state.tasks.find(t=>t.id===id);if(!t)throw Error('找不到该任务');return t;}
-  event(t:Task,event:string):void {
-    appendFileSync(join(this.directory,'events.ndjson'),JSON.stringify({at:new Date().toISOString(),taskId:t.id,event,status:t.status,attempts:t.attempts,sentAt:t.sentAt,responseMs:t.responseMs,triggerDelayMs:t.triggerDelayMs,localTriggerDelayMs:t.localTriggerDelayMs,clockOffsetMs:t.clockOffsetMs,clockUncertaintyMs:t.clockUncertaintyMs,releaseGuardMs:t.releaseGuardMs,wireSentAt:t.wireSentAt,wireResponseMs:t.wireResponseMs,wireTriggerDelayMs:t.wireTriggerDelayMs,response:t.lastResponse,submittedStart:t.submittedStart,submittedEnd:t.submittedEnd})+'\n','utf8');
+  // 1.2.22：可选 detail 承载一次性诊断信息（冲突区间、本地改投结果等），不改变既有字段。
+  event(t:Task,event:string,detail?:Record<string,unknown>):void {
+    appendFileSync(join(this.directory,'events.ndjson'),JSON.stringify({at:new Date().toISOString(),taskId:t.id,event,status:t.status,attempts:t.attempts,sentAt:t.sentAt,responseMs:t.responseMs,triggerDelayMs:t.triggerDelayMs,localTriggerDelayMs:t.localTriggerDelayMs,clockOffsetMs:t.clockOffsetMs,clockUncertaintyMs:t.clockUncertaintyMs,releaseGuardMs:t.releaseGuardMs,wireSentAt:t.wireSentAt,wireResponseMs:t.wireResponseMs,wireTriggerDelayMs:t.wireTriggerDelayMs,response:t.lastResponse,submittedStart:t.submittedStart,submittedEnd:t.submittedEnd,...(detail?{detail}:{})})+'\n','utf8');
   }
 }
 

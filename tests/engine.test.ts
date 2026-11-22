@@ -705,3 +705,40 @@ test('两条同轮到点任务在同一次 tick 内依次提交',()=>setup(async
   assert.equal(a.status,'succeeded');assert.equal(b.status,'succeeded');
   assert.equal(site.preflightTimeouts.length,1,'同轮任务共用预检');
 }));
+
+test('1.2.22首刀单独留痕：重试后 firstShot 仍指向第一次提交',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,courtPriority:['1']});
+  let clock=t.releaseAt+20;e.clock.now=()=>clock;e.clock.monotonic=()=>clock;e.clock.sleep=async ms=>{clock+=ms;};
+  const originalSubmit=site.submit.bind(site);
+  site.submit=async(task,r)=>{clock+=50;return originalSubmit(task,r);};
+  site.results=[{kind:'transient',waitMs:10_000},{kind:'created'}];
+  site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
+  await e.arm(t.id);await e.execute(t.id);
+  assert.equal(t.status,'succeeded');assert.equal(t.attempts,2);
+  assert.equal(t.firstShot?.kind,'transient','首刀的结果类型不应被第二次成功覆盖');
+  assert.equal(t.firstShot?.roomId,COURTS['1'].id);
+  assert.equal(t.firstShot?.triggerDelayMs,20);
+  assert.ok(t.firstShot?.responseMs!>=0);
+  assert.equal(t.triggerDelayMs,120,'最近一次尝试的延迟仍单独记录（含100毫秒全局下限）');
+  assert.notEqual(t.firstShot?.triggerDelayMs,t.triggerDelayMs);
+}));
+
+test('1.2.22首轮冲突留痕：事件与任务都记录冲突区间和本地改投目标',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,start:'22:00',end:'23:00',courtPriority:['1','2']});
+  site.results=[{kind:'conflict',conflictInterval:{date:t.date,start:'22:00',end:'22:30'}},{kind:'created'}];
+  site.afterSubmit=(sent,r)=>{if(r===COURTS['2'].id)site.records=[booking(sent,r)];};
+  await e.arm(t.id);await e.execute(t.id);
+  assert.equal(t.status,'succeeded');
+  assert.deepEqual(site.attempts,[COURTS['1'].id,COURTS['2'].id]);
+  assert.equal(t.lastConflict?.roomId,COURTS['1'].id);
+  assert.equal(t.lastConflict?.begin,'22:00');
+  assert.equal(t.lastConflict?.end,'22:30');
+  assert.equal(t.lastConflict?.reselectRoomId,COURTS['2'].id);
+  assert.equal(t.lastConflict?.reselectStart,'22:00');
+  const ev=await readFile(join(s.directory,'events.ndjson'),'utf8');
+  const line=ev.trim().split(/\r?\n/).map(l=>JSON.parse(l)).find(r=>r.event==='conflict-local-reselect');
+  assert.ok(line,'应写入 conflict-local-reselect 事件');
+  assert.equal(line.detail.reselectRoomId,COURTS['2'].id);
+  assert.equal(line.detail.conflictStart,'22:00');
+  assert.equal(line.detail.conflictEnd,'22:30');
+}));

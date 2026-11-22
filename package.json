@@ -1,6 +1,6 @@
 {
   "name": "badminton-booker",
-  "version": "1.2.21",
+  "version": "1.2.22",
   "private": true,
   "type": "module",
   "engines": {
@@ -21,11 +21,3 @@
     "typescript": "^5.9.0"
   }
 }
-
-
-
-
-
-
-
-

@@ -19,6 +19,10 @@ export interface Task {
   lastResponse?:ResponseDiagnostic; submittedStart?:string;submittedEnd?:string;
   localTriggerDelayMs?:number;clockOffsetMs?:number;clockUncertaintyMs?:number;releaseGuardMs?:number;
   wireSentAt?:number;wireResponseMs?:number;wireTriggerDelayMs?:number;
+  // 1.2.22：首刀自身的落点与耗时单独留痕，后续重试不会覆盖（上面的字段永远指向最近一次尝试）。
+  firstShot?:{at:number;roomId:string;start:string;end:string;triggerDelayMs:number;wireTriggerDelayMs?:number;responseMs?:number;kind?:string};
+  // 1.2.22：最近一次冲突的场地/区间与本地改投结果，便于复盘“为什么没拿到某块场”。
+  lastConflict?:{at:number;roomId:string;begin?:string;end?:string;reselectRoomId?:string;reselectStart?:string;reselectEnd?:string};
 }
 export interface Booking {
   id?: string; ownerId?: string; roomId?: string; beginTime?: string; endTime?: string;

@@ -329,11 +329,17 @@ export class Engine {
     t.triggerDelayMs=Math.round(this.serverNow()-t.releaseAt);
     t.localTriggerDelayMs=this.clock.now()-t.releaseAt;t.clockOffsetMs=ctx.s.serverOffsetMs;t.clockUncertaintyMs=ctx.s.serverUncertaintyMs;
     t.releaseGuardMs=this.timeAnchor?.uncertaintyMs===undefined?0:EARLY_GUARD_MS;
+    // 1.2.22：首刀单独留痕；上面的 triggerDelayMs/wireTriggerDelayMs 指向“最近一次”，重试会覆盖。
+    if(t.attempts===1)t.firstShot={at:t.sentAt,roomId:choice.id,start:choice.slot.start,end:choice.slot.end,triggerDelayMs:t.triggerDelayMs};
     // Flush the potentially in-flight state before allowing any network write.
     this.store.save();ctx.last=this.clock.monotonic();this.lastSubmitMono=ctx.last;
     const result=await this.site.submit({...t,start:choice.slot.start,end:choice.slot.end},choice.id);
     t.lastResponse=result.diagnostic;t.responseMs=Math.round(this.clock.monotonic()-ctx.last);
     if(result.wire){t.wireSentAt=result.wire.sentAt;t.wireResponseMs=result.wire.receivedAt-result.wire.sentAt;t.wireTriggerDelayMs=Math.round(result.wire.sentAt+ctx.s.serverOffsetMs-t.releaseAt);}
+    // 1.2.22：把首刀自己的响应耗时/线上触发延迟/结果类型补进 firstShot，只写一次。
+    if(t.firstShot&&t.firstShot.responseMs===undefined){
+      t.firstShot.responseMs=t.responseMs;t.firstShot.wireTriggerDelayMs=t.wireTriggerDelayMs;t.firstShot.kind=result.kind;
+    }
     this.store.event(t,'response');
     ctx.submitted=false;ctx.result=result;
     return result;
@@ -344,11 +350,19 @@ export class Engine {
     if(result.kind==='auth'||result.kind==='rejected'){this.finish(t,'failed',result.message||'登录失效或网站拒绝预约');ctx.done=true;return;}
     if(result.kind==='conflict'){
       const choice=ctx.choices[ctx.courtIndex],room=choice.id;
+      const interval=result.conflictInterval?.date===t.date?result.conflictInterval:undefined;
       ctx.rejectedSlots.add(this.slotKey(room,choice.slot.start,choice.slot.end));ctx.conflictedRooms.add(room);
-      if(result.conflictInterval?.date===t.date)ctx.conflictHints.push({roomId:room,status:'OPEN',beginTime:`${t.date} ${result.conflictInterval.start}:00`,endTime:`${t.date} ${result.conflictInterval.end}:00`});
+      if(interval)ctx.conflictHints.push({roomId:room,status:'OPEN',beginTime:`${t.date} ${interval.start}:00`,endTime:`${t.date} ${interval.end}:00`});
       if(this.stopIfOwned(ctx))return;
       // 明确冲突后先用提交前缓存+冲突提示本地重选并直接提交，不先做网络占用查询；连续冲突或缓存无候选时才刷新。
-      if(ctx.conflictsSinceRefresh<1){ctx.conflictsSinceRefresh++;ctx.choices=this.choose(ctx);ctx.courtIndex=0;if(ctx.choices.length)return;}
+      if(ctx.conflictsSinceRefresh<1){
+        ctx.conflictsSinceRefresh++;ctx.choices=this.choose(ctx);ctx.courtIndex=0;
+        const next=ctx.choices[0];
+        // 1.2.22：首轮冲突留痕——当时判定的冲突区间、被掩掉的场地、本地改投目标（可能没有候选）。
+        t.lastConflict={at:this.clock.now(),roomId:room,...(interval?{begin:interval.start,end:interval.end}:{}),...(next?{reselectRoomId:next.id,reselectStart:next.slot.start,reselectEnd:next.slot.end}:{})};
+        this.store.event(t,'conflict-local-reselect',{roomId:room,conflictStart:interval?.start??null,conflictEnd:interval?.end??null,reselectRoomId:next?.id??null,reselectStart:next?.slot.start??null,reselectEnd:next?.slot.end??null});
+        if(ctx.choices.length)return;
+      }
       t.status='checking';this.store.save();
       if(this.zeroWindow(t)){
         const refreshed=await this.refreshForRetry(t);
