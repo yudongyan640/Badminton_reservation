@@ -267,10 +267,10 @@ test('电脑已过零点但服务器保守时间尚未到点时仍然等待',()=
   wall+=700;mono+=700;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
   await e.execute(t.id);assert.equal(t.status,'succeeded');assert.equal(site.attempts.length,1);
 }));
-test('零点触发点取双时钟较晚者加15毫秒，校时误差只记录不参与等待',()=>setup(async(s,e,site)=>{
-  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt+10,mono=1000;
+test('零点触发点取双时钟较晚者加10毫秒，校时误差只记录不参与等待',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt+5,mono=1000;
   site.snapshot.serverUncertaintyMs=50;e.clock.now=()=>wall;e.clock.monotonic=()=>mono;
-  await e.arm(t.id);await e.execute(t.id);assert.equal(site.attempts.length,0,'未到15毫秒余量不得提交');
+  await e.arm(t.id);await e.execute(t.id);assert.equal(site.attempts.length,0,'未到10毫秒余量不得提交');
   wall=t.releaseAt+20;mono+=10;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
   await e.execute(t.id);assert.equal(t.status,'succeeded');assert.equal(t.clockUncertaintyMs,50,'误差仍记录到任务');
 }));
@@ -304,18 +304,18 @@ test('已校时后的系统时钟回拨不会使原有单调时钟预约失效',
   await e.arm(t.id);await e.prepare(t.id);wall=t.releaseAt-30000;mono=11160;
   await e.execute(t.id);assert.equal(site.attempts.length,2);
 }));
-test('放号前多采样仍会执行，但触发边界固定为双时钟较晚者加15毫秒',()=>setup(async(s,e,site)=>{
+test('放号前多采样仍会执行，但触发边界固定为双时钟较晚者加10毫秒',()=>setup(async(s,e,site)=>{
   const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt-10_000,mono=1000,refined=0;
   e.clock.now=()=>wall;e.clock.monotonic=()=>mono;
   site.snapshot.serverOffsetMs=0;site.snapshot.serverUncertaintyMs=137;
   site.refineClock=async()=>{refined++;return {offsetMs:0,uncertaintyMs:20};};
   await e.arm(t.id);await e.prepare(t.id);
   assert.equal(refined,1,'放号前30秒内应做多采样');
-  wall=t.releaseAt+10;mono+=10_010;await e.execute(t.id);assert.equal(site.attempts.length,0,'未到15毫秒余量不得提交');
-  wall=t.releaseAt+20;mono+=10;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
+  wall=t.releaseAt+5;mono+=10_005;await e.execute(t.id);assert.equal(site.attempts.length,0,'未到10毫秒余量不得提交');
+  wall=t.releaseAt+20;mono+=15;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
   await e.execute(t.id);
   assert.equal(site.attempts.length,1);assert.equal(t.status,'succeeded');
-  assert.ok((t.localTriggerDelayMs??0)>=15,'最多提前到开放后15毫秒');
+  assert.ok((t.localTriggerDelayMs??0)>=10,'最多提前到开放后10毫秒');
 }));
 test('放号前多采样失败时沿用已有校时，不中断任务',()=>setup(async(s,e,site)=>{
   const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt-10_000,mono=1000;
@@ -474,10 +474,10 @@ test('零点前11秒首次调度时阶段1也受截止限制，失败后仍保�
 
 
 
-test('首发触发点约为服务器点估计的开放后15毫秒，不再叠加校时误差',()=>setup(async(s,e,site)=>{
-  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt+50,mono=1000;
+test('首发触发点约为服务器点估计的开放后10毫秒，不再叠加校时误差',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt+45,mono=1000;
   e.clock.now=()=>wall;e.clock.monotonic=()=>mono;site.snapshot.serverOffsetMs=-40;site.snapshot.serverUncertaintyMs=57;
-  await e.arm(t.id);await e.execute(t.id);assert.equal(site.attempts.length,0,'服务器点估计未过开放后15毫秒不得提交');
+  await e.arm(t.id);await e.execute(t.id);assert.equal(site.attempts.length,0,'服务器点估计未过开放后10毫秒不得提交');
   wall=t.releaseAt+56;mono+=6;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
   await e.execute(t.id);
   assert.equal(t.status,'succeeded');assert.equal(site.attempts.length,1);
@@ -742,3 +742,23 @@ test('1.2.22首轮冲突留痕：事件与任务都记录冲突区间和本地�
   assert.equal(line.detail.conflictStart,'22:00');
   assert.equal(line.detail.conflictEnd,'22:30');
 }));
+
+test('1.2.23重试优先：完成本地重选、有新候选的任务先于同批其它任务重试',()=>setup(async(s,e,site)=>{
+  const a=s.add({...input,start:'19:00',end:'20:00',courtPriority:['1']});
+  const b=s.add({...input,start:'19:00',end:'20:00',courtPriority:['2']});
+  await e.arm(a.id);await e.arm(b.id);
+  site.results=[
+    {kind:'transient',waitMs:10_000},
+    {kind:'conflict',conflictInterval:{date:a.date,start:'19:00',end:'19:30'}},
+    {kind:'created'},
+    {kind:'created'},
+  ];
+  const originalSubmit=site.submit.bind(site);const slots:string[]=[];
+  site.submit=async(t,r)=>{const res=await originalSubmit(t,r);slots.push(`${r}:${t.start}-${t.end}`);if(res.kind==='created')site.records.push(booking(t,r));return res;};
+  await e.executeTasks([a.id,b.id]);
+  assert.deepEqual(site.attempts,[COURTS['1'].id,COURTS['2'].id,COURTS['2'].id,COURTS['1'].id],'重选后的任务应先发，而不是按创建顺序排在其它任务重试之后');
+  assert.equal(slots[2],`${COURTS['2'].id}:19:30-20:00`,'重选任务应带着新时段直接补发');
+  assert.equal(a.status,'succeeded');
+  assert.equal(b.status,'partial','21:00前只剩30分钟，按部分成功停止');
+}));
+

@@ -22,12 +22,14 @@ interface ExecContext {
   conflictHints:Booking[];rejectedSlots:Set<string>;conflictedRooms:Set<string>;
   choices:SlotChoice[];courtIndex:number;conflictsSinceRefresh:number;transientRetries:number;notOpenRetries:number;
   begin:number;last:number;submitted:boolean;result?:AttemptResult;pendingVerify:boolean;done:boolean;notBefore:number;error?:unknown;
+  // 1.2.23：首轮冲突已用缓存完成本地重选、且有新的候选时段，等待重试阶段优先发出。
+  reselectReady:boolean;
 }
 // 零点触发点：取“本机墙钟 / 服务器点估计”的较晚者，再等EARLY_GUARD_MS。
 // 1.2.11起不再叠加校时误差下界（误差只记录）；1.2.19起余量由40毫秒降为30毫秒，
-// 1.2.20起再由30毫秒降为15毫秒，预计在服务器时间开放后约15毫秒发出（wire约+22~33ms）；
+// 1.2.20起再由30毫秒降为15毫秒，1.2.24起降为10毫秒，预计在服务器时间开放后约10毫秒发出（wire约+16~22ms）；
 // 万一提前，网站会返回“不能预订超过2天的会议”，由日期上限规则立即重试兜底。
-export const EARLY_GUARD_MS=15;
+export const EARLY_GUARD_MS=10;
 // 零点错误后的占用刷新限时：与零点密集重试节奏（约300毫秒）匹配，超时就用缓存+冲突提示继续重选，
 // 不再让刷新把下一次提交拖后（原400毫秒会把密集节奏重新拖到约0.4~0.55秒）。
 const ZERO_REFRESH_TIMEOUT_MS=150;
@@ -294,7 +296,7 @@ export class Engine {
       if(report.intercepted!==1||report.forwarded!==0)throw Error('演练未通过，未进入正式提交');
       this.finish(t,'rehearsed',`演练通过：已拦截${report.intercepted}次预约请求，实际发送${report.forwarded}次；没有预约场地`);return null;
     }
-    const ctx:ExecContext={t,s,records,targetRooms,allowedRooms:[...targetRooms],conflictHints:[],rejectedSlots:new Set(),conflictedRooms:new Set(),choices:[],courtIndex:0,conflictsSinceRefresh:0,transientRetries:0,notOpenRetries:0,begin:this.clock.monotonic(),last:-Infinity,submitted:false,pendingVerify:false,done:false,notBefore:0};
+    const ctx:ExecContext={t,s,records,targetRooms,allowedRooms:[...targetRooms],conflictHints:[],rejectedSlots:new Set(),conflictedRooms:new Set(),choices:[],courtIndex:0,conflictsSinceRefresh:0,transientRetries:0,notOpenRetries:0,begin:this.clock.monotonic(),last:-Infinity,submitted:false,pendingVerify:false,done:false,notBefore:0,reselectReady:false};
     ctx.choices=this.choose(ctx);
     // 1.2.18：预检快照（放号前读取）显示目标全占时，零点最多再查一次实时占用再下结论。
     // 只在这一种情况下复查：已有候选时直接按原节奏提交；迟到任务/本轮已刷新过占用时不重复查询。
@@ -321,6 +323,8 @@ export class Engine {
     const t=ctx.t;
     const wait=parallel?0:Math.max(0,100-(this.clock.monotonic()-ctx.last),100-(this.clock.monotonic()-this.lastSubmitMono));
     if(wait)await this.clock.sleep(wait);
+    // 1.2.23：一旦真的发出，就不再享有“本地重选优先”，下一次冲突重新判定。
+    ctx.reselectReady=false;
     const choice=ctx.choices[ctx.courtIndex];
     ctx.submitted=true;
     t.status='submitting';t.attempts++;t.sentAt=this.clock.now();
@@ -361,7 +365,8 @@ export class Engine {
         // 1.2.22：首轮冲突留痕——当时判定的冲突区间、被掩掉的场地、本地改投目标（可能没有候选）。
         t.lastConflict={at:this.clock.now(),roomId:room,...(interval?{begin:interval.start,end:interval.end}:{}),...(next?{reselectRoomId:next.id,reselectStart:next.slot.start,reselectEnd:next.slot.end}:{})};
         this.store.event(t,'conflict-local-reselect',{roomId:room,conflictStart:interval?.start??null,conflictEnd:interval?.end??null,reselectRoomId:next?.id??null,reselectStart:next?.slot.start??null,reselectEnd:next?.slot.end??null});
-        if(ctx.choices.length)return;
+        // 1.2.23：有新的候选时段时标记优先，重试阶段先发它，不再排在其它任务的重试后面。
+        if(ctx.choices.length){ctx.reselectReady=true;return;}
       }
       t.status='checking';this.store.save();
       if(this.zeroWindow(t)){
@@ -477,9 +482,13 @@ export class Engine {
       for(const ctx of serial){try{await this.submitAttempt(ctx);}catch(e){ctx.error=e;}}
       for(const ctx of contexts){if(ctx.error)continue;try{await this.processResult(ctx);}catch(e){ctx.error=e;}}
       // 2) 重试阶段：按创建顺序轮流给每条任务一次提交机会，各自受自己的20次/15秒窗口限制。
+      //    1.2.23：已完成首轮冲突本地重选、有新的候选时段的任务先发——它们已经准备好了，
+      //    不应被其它任务（可能正在等几百毫秒的响应）挡住；其余任务仍按创建顺序轮转。
       while(contexts.some(c=>!c.done&&!c.pendingVerify&&!c.error)){
         let progressed=false,wait=Infinity;
-        for(const ctx of contexts){
+        const ready=contexts.filter(c=>!c.done&&!c.pendingVerify&&!c.error&&c.reselectReady);
+        const rest=contexts.filter(c=>!c.done&&!c.pendingVerify&&!c.error&&!c.reselectReady);
+        for(const ctx of [...ready,...rest]){
           if(ctx.done||ctx.pendingVerify||ctx.error)continue;
           if(this.clock.monotonic()-ctx.begin>=15_000||ctx.t.attempts>=20){this.finish(ctx.t,'failed','本次尝试窗口结束，未取得可确认的预约时段');ctx.done=true;continue;}
           const now=this.clock.monotonic();
