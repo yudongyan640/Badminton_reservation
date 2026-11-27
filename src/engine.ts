@@ -51,6 +51,11 @@ const PREPARE_SHARE_MS=3_000;
 // 让第二条不再损失“第一条的响应时间”。时段重叠的任务（含同时段多场地）仍严格串行，
 // 因为平台按账号拒绝同一时间的第二个会议；首波之外的重试/核对也仍是单在途、100毫秒间隔。
 const MAX_PARALLEL_FIRST_SHOTS=2;
+// 1.2.25：放号前5分钟内拒绝会长时间占用引擎的手动操作（日历、立即演练）。演练最长可占用约1分钟，
+// 期间 busy 会让零点调度整轮跳过，正式任务可能晚几十秒才提交。
+const IMMINENT_MS=300_000;
+// 1.2.25：手动检查在60秒内不覆盖误差更小的校时结果。
+const MANUAL_KEEP_ANCHOR_MS=60_000;
 function errorText(e:unknown):string{
   const raw=(e instanceof Error?e.message:String(e)).replace(/https?:\/\/\S+/gi,'[链接已隐藏]').replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi,'[邮箱已隐藏]').replace(/\s+/g,' ').trim();
   return (raw||'未知错误').slice(0,200);
@@ -65,7 +70,7 @@ export class Engine {
   // 跨任务统一的提交节奏：同一账号任意两次提交起始间隔≥100毫秒；
   // 唯一例外是1.2.21的首波并发（仅限时段互不重叠的任务，最多两条，见MAX_PARALLEL_FIRST_SHOTS）。
   private lastSubmitMono=-Infinity;
-  private timeAnchor?:{serverAt:number;monoAt:number;uncertaintyMs?:number};
+  private timeAnchor?:{serverAt:number;monoAt:number;uncertaintyMs?:number;offsetMs:number};
   private localAnchor?:{at:number;monoAt:number};
   constructor(store:Store,site:Site,clock:Partial<Clock>={}){
     this.store=store;this.site=site;this.clock={now:Date.now,sleep:delay,monotonic:()=>performance.now(),...clock};
@@ -89,20 +94,35 @@ export class Engine {
   // 账号级暂停：有任一任务结果待确认，或持久化了冻结记录，正式任务就不能再自动提交。
   private accountPaused():boolean{return !!this.store.state.freeze||this.store.state.tasks.some(t=>t.status==='unknown');}
   private blocked(t:Task):boolean{return t.mode==='live'&&this.accountPaused();}
-  async inspect(timeoutMs?:number):Promise<Snapshot>{
+  // 有未暂停的等待任务将在 withinMs 内放号（或已过放号、即将执行）。
+  private imminent(withinMs=IMMINENT_MS):boolean{
+    return this.store.state.tasks.some(t=>t.status==='scheduled'&&!this.blocked(t)&&t.releaseAt-this.serverNow()<=withinMs);
+  }
+  // manual=true 表示用户在控制页触发的检查（检查登录/启用/核对/演练/日历）。
+  async inspect(timeoutMs?:number,opts:{manual?:boolean}={}):Promise<Snapshot>{
     const before=this.clock.now(),monoBefore=this.clock.monotonic(),snapshot=await this.site.preflight(timeoutMs),now=this.clock.now(),mono=this.clock.monotonic();
-    if(snapshot.serverUncertaintyMs!==undefined&&Math.abs(now-before-(mono-monoBefore))>50)throw Error('校时期间电脑时钟发生调整，请重新检查登录');
-    this.cached=snapshot;this.localAnchor??={at:now,monoAt:mono};
-    this.timeAnchor={serverAt:now+snapshot.serverOffsetMs,monoAt:mono,uncertaintyMs:snapshot.serverUncertaintyMs};return snapshot;
+    const steady=Math.abs(now-before-(mono-monoBefore))<=50;
+    if(snapshot.serverUncertaintyMs!==undefined&&!steady)throw Error('校时期间电脑时钟发生调整，请重新检查登录');
+    // 1.2.25：本机墙钟锚点每次稳定的检查都刷新（原先只在第一次检查时设置，实例连续运行数天后
+    // 单调时钟与墙钟的漂移会一直累积，只可能让触发点变晚）。检查期间墙钟跳变时保留旧锚点。
+    if(steady||!this.localAnchor)this.localAnchor={at:now,monoAt:mono};
+    // 1.2.25：手动检查不得用一次普通采样覆盖60秒内误差更小的校时（如放号前10秒的多采样结果），
+    // 否则临近零点点一下“检查登录”就会换掉触发点所依据的最优校时。返回的快照同步为保留的校时。
+    const kept=this.timeAnchor;
+    if(opts.manual&&kept?.uncertaintyMs!==undefined&&snapshot.serverUncertaintyMs!==undefined&&mono-kept.monoAt<=MANUAL_KEEP_ANCHOR_MS&&kept.uncertaintyMs<=snapshot.serverUncertaintyMs){
+      snapshot.serverOffsetMs=kept.offsetMs;snapshot.serverUncertaintyMs=kept.uncertaintyMs;
+      this.cached=snapshot;return snapshot;
+    }
+    this.cached=snapshot;
+    this.timeAnchor={serverAt:now+snapshot.serverOffsetMs,monoAt:mono,uncertaintyMs:snapshot.serverUncertaintyMs,offsetMs:snapshot.serverOffsetMs};return snapshot;
   }
   async calendar(start:string,end:string):Promise<CalendarSnapshot>{
     validateCalendarRange(start,end);
-    const imminent=()=>this.store.state.tasks.some(t=>t.status==='scheduled'&&!this.blocked(t)&&t.releaseAt-this.serverNow()<=300000);
-    if(this.busy||imminent())throw Error('预约正在执行或临近执行，请稍后刷新日历');
+    if(this.busy||this.imminent())throw Error('预约正在执行或临近执行，请稍后刷新日历');
     this.busy=true;
     try{
-      const s=await this.inspect();
-      if(imminent())throw Error('预约临近执行，请稍后刷新日历');
+      const s=await this.inspect(undefined,{manual:true});
+      if(this.imminent())throw Error('预约临近执行，请稍后刷新日历');
       if(!this.site.listRange)throw Error('当前网站适配器尚不支持日历范围查询');
       const records=await this.site.listRange(start,end);
       return {start,end,accountId:s.accountId,accountName:s.accountName,checkedAt:this.clock.now(),bookings:calendarBookings(records,s.accountId,start,end)};
@@ -116,7 +136,7 @@ export class Engine {
     // 1.2.13：只有“时段重叠且场地集合有交集”才算冲突。两条各自只约一块场地（一单一双）的任务允许同一时段分别启用，
     // 用于“同一时段两块场地”同时抢；任一任务是“任一场地”备选（[1,2]）时仍按重叠拒绝，避免两块都落到同一场地。
     if(this.store.state.tasks.some(a=>a.id!==id&&a.mode===t.mode&&active.has(a.status)&&overlaps(a,t)&&!disjointSingleCourt(a,t)))throw Error('与已有任务时段重叠，请取消重复任务');
-    const s=await this.inspect();validateRules(t,s);
+    const s=await this.inspect(undefined,{manual:true});validateRules(t,s);
     if(t.status!==original)throw Error('任务状态已改变，请刷新后重试');
     if(t.mode==='live'&&this.accountPaused())throw Error('账号已暂停正式预约');
     if(this.store.state.tasks.some(a=>a.id!==id&&a.mode===t.mode&&active.has(a.status)&&overlaps(a,t)&&!disjointSingleCourt(a,t)))throw Error('与已有任务时段重叠');
@@ -160,7 +180,8 @@ export class Engine {
           const now=this.clock.now(),mono=this.clock.monotonic();
           if(Math.abs(now-before-(mono-monoBefore))<=50){
             s.serverOffsetMs=refined.offsetMs;s.serverUncertaintyMs=refined.uncertaintyMs;s.sampledAt=now;
-            this.cached=s;this.timeAnchor={serverAt:now+refined.offsetMs,monoAt:mono,uncertaintyMs:refined.uncertaintyMs};
+            this.cached=s;this.timeAnchor={serverAt:now+refined.offsetMs,monoAt:mono,uncertaintyMs:refined.uncertaintyMs,offsetMs:refined.offsetMs};
+            this.localAnchor={at:now,monoAt:mono};
           }
         }catch{/* 多采样失败时继续使用已有校时，不在零点前中断任务 */}
       }
@@ -208,7 +229,7 @@ export class Engine {
   async reconcile(id:string):Promise<void>{
     if(this.busy)throw Error('预约正在执行，请稍后核对');
     const t=this.store.get(id);if(t.status!=='unknown')throw Error('该任务无需核对');
-    const s=await this.inspect();if(s.accountId!==t.accountId)throw Error('请登录原预约账号后核对');
+    const s=await this.inspect(undefined,{manual:true});if(s.accountId!==t.accountId)throw Error('请登录原预约账号后核对');
     const b=await this.verify(t);
     if(!b.length)throw Error('尚未查到可确认的预约，继续保持暂停；请在网站核对');
     this.success(t,b);this.afterResolved(id);this.store.save();
@@ -216,12 +237,13 @@ export class Engine {
   async rehearseNow(id:string):Promise<void>{
     const t=this.store.get(id);
     if(this.busy||t.mode!=='dry-run'||!['draft','failed','cancelled','rehearsed'].includes(t.status))throw Error('请选择一个未启用的演练任务');
+    if(this.imminent())throw Error('有任务将在5分钟内执行，演练会占用浏览器约1分钟，请在放号后再演练');
     this.busy=true;
     try{
-      const s=await this.inspect();validateRules(t,s);t.accountId=s.accountId;
+      const s=await this.inspect(undefined,{manual:true});validateRules(t,s);t.accountId=s.accountId;
       const r=await this.site.rehearse(t,COURTS[t.courtPriority[0]].id);
       if(r.intercepted!==1||r.forwarded!==0)throw Error('拦截检查未通过');
-      await this.inspect().catch(()=>{});
+      await this.inspect(undefined,{manual:true}).catch(()=>{});
       this.finish(t,'rehearsed',`演练通过：拦截${r.intercepted}次，实际发送${r.forwarded}次，没有预约场地`);
     }catch(e){this.finish(t,'failed','演练未完成：'+errorText(e)+'；没有正式提交');}
     finally{this.busy=false;}

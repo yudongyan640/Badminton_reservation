@@ -19,6 +19,19 @@ tokens.json
 *.key
 *.p12
 *.pfx
+.auth/
+credentials/
+credentials.json
+credentials.*.json
+service-account*.json
+passwords.json
+passwords.txt
+storage-state*.json
+storageState*.json
+.netrc
+_netrc
+.npmrc
+.pypirc
 
 # ------------------------------------------------------------
 # Dependencies, local caches and generated artifacts
@@ -31,9 +44,18 @@ node_modules/
 .venv/
 venv/
 env/
+virtualenv/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 logs/
 metrics/
 outputs/
+wandb/
+mlruns/
 test-results/
 coverage/
 playwright-report/
@@ -59,9 +81,26 @@ temp/
 *.ckpt
 *.safetensors
 *.h5
+*.hdf5
 *.pb
 *.npy
 *.npz
+*.pkl
+*.pickle
+weights/
+checkpoints/
+datasets/
+*.csv
+*.tsv
+*.parquet
+*.arrow
+*.feather
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.bin
 *.zip
 *.7z
@@ -78,3 +117,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Claude Code local (per-machine) settings
+.claude/settings.local.json

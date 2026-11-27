@@ -762,3 +762,46 @@ test('1.2.23重试优先：完成本地重选、有新候选的任务先于同�
   assert.equal(b.status,'partial','21:00前只剩30分钟，按部分成功停止');
 }));
 
+// 1.2.25：放号前5分钟内拒绝“立即演练”，避免演练占用引擎约1分钟把零点提交拖晚。
+test('有任务5分钟内放号时拒绝立即演练，不占用引擎',()=>setup(async(s,e,site)=>{
+  const live=s.add({...input,date:'2026-10-22'});live.status='scheduled';live.accountId='me';
+  const dry=s.add({...input,date:'2026-10-23',mode:'dry-run'});let rehearsed=0;
+  site.rehearse=async(_t,r)=>{rehearsed++;return {intercepted:1,forwarded:0,fields:[],roomId:r};};
+  e.clock.now=()=>live.releaseAt-120_000;
+  await assert.rejects(e.rehearseNow(dry.id),/5分钟/);
+  assert.equal(rehearsed,0);assert.equal(e.busy,false);assert.equal(dry.status,'draft');assert.equal(live.status,'scheduled');
+  e.clock.now=()=>live.releaseAt-400_000;await e.rehearseNow(dry.id);assert.equal(rehearsed,1);assert.equal(dry.status,'rehearsed');
+}));
+// 1.2.25：零点前手动“检查登录”不能用一次普通采样换掉放号前多采样得到的更优校时。
+test('临近零点手动检查不覆盖60秒内误差更小的校时',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt-12_000,mono=1000;
+  e.clock.now=()=>wall;e.clock.monotonic=()=>mono;site.snapshot.serverOffsetMs=0;site.snapshot.serverUncertaintyMs=55;
+  site.refineClock=async()=>({offsetMs:0,uncertaintyMs:20});
+  await e.arm(t.id);await e.prepare(t.id);
+  wall+=5_000;mono+=5_000;site.snapshot.serverOffsetMs=-500;site.snapshot.serverUncertaintyMs=55;
+  const checked=await e.inspect(undefined,{manual:true});
+  assert.equal(checked.serverOffsetMs,0,'返回的快照应同步为保留的校时');assert.equal(checked.serverUncertaintyMs,20);
+  wall=t.releaseAt+12;mono=1000+12_012;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
+  await e.execute(t.id);assert.equal(site.attempts.length,1,'仍按多采样校时在开放后约10毫秒提交');assert.equal(t.status,'succeeded');
+}));
+test('手动检查在校时已超过60秒或误差更小时正常更新校时',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt-200_000,mono=1000;
+  e.clock.now=()=>wall;e.clock.monotonic=()=>mono;site.snapshot.serverOffsetMs=0;site.snapshot.serverUncertaintyMs=30;
+  await e.arm(t.id);
+  wall+=61_000;mono+=61_000;site.snapshot.serverOffsetMs=-500;site.snapshot.serverUncertaintyMs=55;
+  assert.equal((await e.inspect(undefined,{manual:true})).serverOffsetMs,-500,'超过60秒的校时不再保留');
+  site.snapshot.serverOffsetMs=-400;site.snapshot.serverUncertaintyMs=40;
+  assert.equal((await e.inspect(undefined,{manual:true})).serverOffsetMs,-400,'误差更小的新采样应采用');
+}));
+// 1.2.25：本机墙钟锚点每次稳定检查都刷新；旧版只用第一次检查的锚点，单调时钟漂移会让触发点变晚。
+test('本机墙钟锚点在每次检查时刷新，单调时钟漂移不会拖晚首刀',()=>setup(async(s,e,site)=>{
+  const t=s.add({...input,date:'2026-10-22'});let wall=t.releaseAt-200_000,mono=1000;
+  e.clock.now=()=>wall;e.clock.monotonic=()=>mono;site.snapshot.serverOffsetMs=0;site.snapshot.serverUncertaintyMs=50;
+  await e.arm(t.id);
+  // 190秒内单调时钟比墙钟慢了300毫秒（模拟长时间运行的累计漂移）。
+  wall=t.releaseAt-10_000;mono=1000+189_700;await e.prepare(t.id);
+  wall+=10_012;mono+=10_012;site.results=[{kind:'created'}];site.afterSubmit=(sent,r)=>{site.records=[booking(sent,r)];};
+  await e.execute(t.id);
+  assert.equal(site.attempts.length,1,'旧锚点会推算为开放前288毫秒而不提交');assert.equal(t.status,'succeeded');
+  assert.equal(t.localTriggerDelayMs,12);
+}));
