@@ -11,3 +11,34 @@ main{max-width:1380px;margin:0 auto;padding:35px 40px 20px}.intro{display:flex;j
 .task:is([data-status=succeeded],[data-status=partial],[data-status=failed],[data-status=cancelled],[data-status=rehearsed]) .badge{background:var(--pale);color:var(--ink)}
 .task:is([data-status=succeeded],[data-status=partial],[data-status=failed],[data-status=cancelled],[data-status=rehearsed]) .secondary{border-color:var(--line)}
 @media(max-width:1000px){main{padding:25px}.intro{align-items:start;flex-direction:column}.login-tools{justify-content:flex-start}.workspace{grid-template-columns:320px minmax(0,1fr);gap:22px}.composer{padding:21px}.guidance{grid-template-columns:1fr;gap:13px}.task{padding:17px}.task-time{font-size:25px}}@media(max-width:720px){.topbar{height:72px;padding:0 20px}.brand-sub{display:none}.brand{font-size:21px}.clock{flex-direction:column;align-items:end;gap:2px}.clock time{font-size:20px}main{padding:25px 18px}.workspace{grid-template-columns:1fr}.composer{padding:22px}.queue{margin-top:8px}h1{font-size:25px}.empty{min-height:245px}footer{flex-direction:column;gap:7px}.task-time{font-size:28px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+/* 1.2.26：顶栏实例标签与开抢倒计时 */
+.instance-badge{margin-left:16px;font-size:13px;font-weight:600;color:#fff;background:var(--green);border-radius:30px;padding:5px 12px;white-space:nowrap;letter-spacing:.5px}
+.next-release{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 18px;border-radius:8px;background:var(--pale);color:var(--green);text-align:center;min-width:0}
+.next-release strong{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.next-release span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.next-release[data-tone=soon]{background:#fff4e7;color:#8a4823;box-shadow:inset 0 0 0 1px #e8b98a}
+.next-release[data-tone=soon] span{color:#8a4823}
+.next-release[data-tone=live]{background:var(--green);color:#fff}
+.next-release[data-tone=live] span{color:#ffffffcc}
+.next-release[data-tone=warn]{background:#fff0df;color:#8a4823;box-shadow:inset 0 0 0 1px #e8b98a}
+.next-release[data-tone=warn] span{color:#8a4823}
+/* 账号2等非默认数据目录：整页换蓝色强调色 */
+body.instance-alt{--green:#1d5f8c;--pale:#eaf2f8;--line:#d8e2ea;--ink:#1f3140;--muted:#5f6f7c}
+body.instance-alt .secondary{border-color:#c4d6e4}
+/* 1.2.26：任务分组、历史紧凑行 */
+.task-group{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:650;margin:22px 0 10px;color:var(--ink)}
+.task-group:first-child{margin-top:0}
+.task-group span{font-size:12px;font-weight:400;color:var(--muted)}
+.task-group-empty{font-size:12px;color:var(--muted);margin:0 0 6px;padding:14px 16px;border:1px dashed var(--line);border-radius:6px}
+.task.compact{padding:0;margin-bottom:6px}
+.task.compact summary{display:grid;grid-template-columns:92px 104px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;list-style:none;font-size:13px}
+.task.compact summary::-webkit-details-marker{display:none}
+.task.compact summary:focus-visible{outline:3px solid #79b396;outline-offset:2px}
+.task-row-date{color:var(--muted);font-variant-numeric:tabular-nums}
+.task-row-time{font-weight:600;font-variant-numeric:tabular-nums}
+.task-row-meta{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-body{padding:2px 16px 14px;border-top:1px solid var(--line)}
+.task.compact[data-status=succeeded]{border-left-color:#5f9b7c}.task.compact[data-status=partial]{border-left-color:#c99a4e}.task.compact[data-status=failed]{border-left-color:#b8735a}
+.history-toggle{display:block;margin:10px auto 0}
+@media(max-width:1000px){.topbar{height:auto;min-height:90px;flex-wrap:wrap;gap:10px;padding-top:12px;padding-bottom:12px}.next-release{order:3;width:100%;flex-direction:row;justify-content:center;flex-wrap:wrap;gap:4px 14px}}
+@media(max-width:720px){.brand>span:not(.instance-badge){display:none}.instance-badge{margin-left:4px;font-size:12px;padding:4px 9px}.task.compact summary{grid-template-columns:auto 1fr auto;gap:4px 10px;padding:10px 12px}.task.compact .badge{justify-self:end}.task-row-meta{grid-column:1/-1;order:4}}

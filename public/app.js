@@ -41,36 +41,103 @@ async function loadCalendar(){
 function moveCalendarMonth(change){const date=new Date(calendarMonth+'-01T00:00:00Z');date.setUTCMonth(date.getUTCMonth()+change);calendarMonth=date.toISOString().slice(0,7);loadCalendar();}
 $('#calendar-refresh').onclick=()=>loadCalendar();$('#calendar-prev').onclick=()=>moveCalendarMonth(-1);$('#calendar-next-month').onclick=()=>moveCalendarMonth(1);$('#calendar-today').onclick=()=>{calendarMonth=dateString(Date.now()).slice(0,7);loadCalendar();};
 function alertResult(t){if(!$('#sound').checked||!audio)return;const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=t.status==='succeeded'?660:440;g.gain.setValueAtTime(.07,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.3);o.start();o.stop(audio.currentTime+.3);}
-function renderTasks(){
-  const list=$('#tasks');list.replaceChildren();$('#count').textContent=state.tasks.length;$('#empty').hidden=state.tasks.length>0;
-  // hidden must win over the empty-state flex layout.
-  $('#empty').style.display=state.tasks.length?'none':'flex';
-  for(const t of [...state.tasks].reverse()){
-    if(seen.has(t.id)&&seen.get(t.id)!==t.status&&['succeeded','partial','failed','unknown','rehearsed'].includes(t.status)){toast(`${statusNames[t.status]}：${t.date} ${t.start}–${t.end}`);alertResult(t);if(['succeeded','partial','unknown'].includes(t.status))calendarNeedsRefresh=true;}seen.set(t.id,t.status);
-    const card=node('article','task');card.dataset.status=t.status;const top=node('div','task-head');
-    top.append(node('div','task-date',t.date+' '+new Intl.DateTimeFormat('zh-CN',{weekday:'long',timeZone:'Asia/Shanghai'}).format(new Date(t.date+'T12:00:00+08:00'))),node('span','badge',statusNames[t.status]||t.status));card.append(top,node('div','task-time',`${t.start} – ${t.end}`));
-    card.append(node('p','task-meta',`${t.mode==='live'?'正式预约':'演练'} · ${t.courtPriority.map(c=>'场'+c).join('，然后')} · ${t.subject}`));
-    card.append(node('p','task-meta','开抢时间：'+stamp(t.releaseAt)),node('p','task-message',t.message));
-    for(const r of (t.receipts||(t.receipt?[t.receipt]:[])))card.append(node('p','receipt',`实际预约：${r.begin} 至 ${r.end}，${r.court}，编号：${r.id}`));
-    if(t.sentAt)card.append(node('p','task-meta',`尝试 ${t.attempts} 次，最近响应 ${t.responseMs??'--'} 毫秒`));
-    if(t.submittedStart&&t.submittedEnd)card.append(node('p','task-meta',`本次提交时段：${t.date} ${t.submittedStart}–${t.submittedEnd}`));
-    const actions=node('div','task-actions');
-    const add=(text,action,cls='secondary')=>{const b=node('button',cls,text);b.disabled=busy||state.busy;b.onclick=()=>operateTask(t,action);actions.append(b);};
-    if(['draft','failed','cancelled','rehearsed'].includes(t.status)){
-      if(t.mode==='dry-run')add('立即演练','rehearse');
-      add(t.mode==='live'?'启用自动预约':'启用到点演练','arm');
-    }
-    if(['draft','scheduled'].includes(t.status))add('停止等待','cancel','quiet');
-    if(t.status==='unknown'){add('核对网站记录','reconcile');add('我已人工核对','confirm','quiet');}
-    if(actions.children.length)card.append(actions);list.append(card);
+// 1.2.26：任务按“进行中 / 待启用 / 历史”分组；历史默认只显示最近5条，单行紧凑显示，点开看详情与操作。
+const ACTIVE_STATUSES=['scheduled','checking','submitting','unknown'],IDLE_STATUSES=['draft','rehearsed'],HISTORY_PREVIEW=5;
+let showAllHistory=false,lastTaskKey='';const openHistory=new Set();
+const weekday=date=>new Intl.DateTimeFormat('zh-CN',{weekday:'long',timeZone:'Asia/Shanghai'}).format(new Date(date+'T12:00:00+08:00'));
+function taskBody(t){
+  const parts=[node('p','task-meta',`${t.mode==='live'?'正式预约':'演练'} · ${t.courtPriority.map(c=>'场'+c).join('，然后')} · ${t.subject}`),node('p','task-meta','开抢时间：'+stamp(t.releaseAt)),node('p','task-message',t.message)];
+  for(const r of (t.receipts||(t.receipt?[t.receipt]:[])))parts.push(node('p','receipt',`实际预约：${r.begin} 至 ${r.end}，${r.court}，编号：${r.id}`));
+  if(t.sentAt)parts.push(node('p','task-meta',`尝试 ${t.attempts} 次，最近响应 ${t.responseMs??'--'} 毫秒`));
+  if(t.submittedStart&&t.submittedEnd)parts.push(node('p','task-meta',`本次提交时段：${t.date} ${t.submittedStart}–${t.submittedEnd}`));
+  const actions=node('div','task-actions');
+  const add=(text,action,cls='secondary')=>{const b=node('button',cls,text);b.disabled=busy||state.busy;b.onclick=()=>operateTask(t,action);actions.append(b);};
+  if(['draft','failed','cancelled','rehearsed'].includes(t.status)){
+    if(t.mode==='dry-run')add('立即演练','rehearse');
+    add(t.mode==='live'?'启用自动预约':'启用到点演练','arm');
   }
+  if(['draft','scheduled'].includes(t.status))add('停止等待','cancel','quiet');
+  if(t.status==='unknown'){add('核对网站记录','reconcile');add('我已人工核对','confirm','quiet');}
+  if(actions.children.length)parts.push(actions);
+  return parts;
+}
+function fullCard(t){
+  const card=node('article','task');card.dataset.status=t.status;const top=node('div','task-head');
+  top.append(node('div','task-date',t.date+' '+weekday(t.date)),node('span','badge',statusNames[t.status]||t.status));
+  card.append(top,node('div','task-time',`${t.start} – ${t.end}`),...taskBody(t));return card;
+}
+function compactCard(t){
+  const card=node('article','task compact');card.dataset.status=t.status;const details=node('details');details.open=openHistory.has(t.id);
+  details.ontoggle=()=>{if(details.open)openHistory.add(t.id);else openHistory.delete(t.id);};
+  const summary=node('summary','task-row');const receipts=t.receipts||(t.receipt?[t.receipt]:[]);
+  const got=receipts.length&&t.status==='partial'?'（实得 '+receipts.map(r=>r.begin.slice(11,16)+'–'+r.end.slice(11,16)).join('、')+'）':'';
+  summary.append(node('span','task-row-date',t.date.slice(5)+' '+weekday(t.date).replace('星期','周')),node('span','task-row-time',`${t.start}–${t.end}`),node('span','task-row-meta',`${t.courtPriority.map(c=>'场'+c).join('/')} · ${t.mode==='live'?'正式':'演练'}${got}`),node('span','badge',statusNames[t.status]||t.status));
+  const body=node('div','task-body');body.append(...taskBody(t));details.append(summary,body);card.append(details);return card;
+}
+function taskGroup(title,count,cls){const head=node('h3','task-group '+cls);head.append(document.createTextNode(title),node('span','',String(count)));return head;}
+function renderTasks(){
+  for(const t of state.tasks){
+    if(seen.has(t.id)&&seen.get(t.id)!==t.status&&['succeeded','partial','failed','unknown','rehearsed'].includes(t.status)){toast(`${statusNames[t.status]}：${t.date} ${t.start}–${t.end}`);alertResult(t);if(['succeeded','partial','unknown'].includes(t.status))calendarNeedsRefresh=true;}seen.set(t.id,t.status);
+  }
+  // 每1.5秒轮询一次；内容没变就不重绘，避免展开的历史被收起、按钮焦点被重置。
+  const key=JSON.stringify([state.tasks,busy,!!state.busy,showAllHistory]);if(key===lastTaskKey)return;lastTaskKey=key;
+  const list=$('#tasks');list.replaceChildren();$('#count').textContent=state.tasks.length;
+  // hidden must win over the empty-state flex layout.
+  $('#empty').hidden=state.tasks.length>0;$('#empty').style.display=state.tasks.length?'none':'flex';
+  const byCreated=(a,b)=>b.createdAt-a.createdAt;
+  const active=state.tasks.filter(t=>ACTIVE_STATUSES.includes(t.status)).sort((a,b)=>(a.status==='unknown'?0:1)-(b.status==='unknown'?0:1)||a.releaseAt-b.releaseAt||a.createdAt-b.createdAt);
+  const idle=state.tasks.filter(t=>IDLE_STATUSES.includes(t.status)).sort(byCreated);
+  const history=state.tasks.filter(t=>!ACTIVE_STATUSES.includes(t.status)&&!IDLE_STATUSES.includes(t.status)).sort((a,b)=>b.date.localeCompare(a.date)||b.start.localeCompare(a.start)||byCreated(a,b));
+  if(!state.tasks.length)return;
+  list.append(taskGroup('进行中',active.length,'active'));
+  if(active.length)for(const t of active)list.append(fullCard(t));
+  else list.append(node('p','task-group-empty','当前没有等待执行的任务。启用任务后会显示在这里，并在顶部倒计时。'));
+  if(idle.length){list.append(taskGroup('待启用',idle.length,'idle'));for(const t of idle)list.append(fullCard(t));}
+  if(history.length){
+    list.append(taskGroup('历史记录',history.length,'history'));
+    const shown=showAllHistory?history:history.slice(0,HISTORY_PREVIEW);for(const t of shown)list.append(compactCard(t));
+    if(history.length>HISTORY_PREVIEW){const more=node('button','quiet history-toggle',showAllHistory?'收起历史记录':`显示全部 ${history.length} 条历史记录`);more.type='button';more.disabled=busy;more.onclick=()=>{showAllHistory=!showAllHistory;renderTasks();};list.append(more);}
+  }
+}
+const instanceName=inst=>inst.dataDir==='data'?'账号1':inst.dataDir==='data-b'?'账号2':inst.dataDir;
+function duration(ms){
+  const s=Math.max(0,Math.floor(ms/1000)),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),pad=n=>String(n).padStart(2,'0');
+  return d?`${d} 天 ${h} 小时`:`${pad(h)}:${pad(m)}:${pad(s%60)}`;
+}
+// 1.2.26：顶栏显示下一次开抢的倒计时（与引擎相同，取未暂停的等待任务中最早的放号时刻）。
+function renderCountdown(){
+  const box=$('#next-release');if(!state){box.hidden=true;return;}
+  const paused=!!state.freeze||state.tasks.some(t=>t.status==='unknown');
+  const running=state.tasks.filter(t=>['checking','submitting'].includes(t.status));
+  const waiting=state.tasks.filter(t=>t.status==='scheduled'&&!(paused&&t.mode==='live'));
+  const blockedLive=paused&&state.tasks.some(t=>t.status==='scheduled'&&t.mode==='live');
+  box.hidden=!running.length&&!waiting.length&&!blockedLive;if(box.hidden)return;
+  const s=state.site,sub=s?`校时误差 ±${s.serverUncertaintyMs??'--'} 毫秒 · 最近检查 ${stamp(s.sampledAt).slice(11)}`:'尚未检查登录，请先检查登录';
+  let main,tone='';
+  if(running.length){main=`正在预约 ${running.length} 条任务…`;tone='live';}
+  else if(!waiting.length){main='账号已暂停：到点不会自动提交';tone='warn';}
+  else{
+    const next=Math.min(...waiting.map(t=>t.releaseAt)),batch=waiting.filter(t=>t.releaseAt===next).length,left=next-Date.now();
+    const when=stamp(next).slice(5,16).replace('/','-');
+    if(left<=0){main=`已到开抢时间（${when}），正在执行`;tone='live';}
+    else{main=`下次开抢 ${when} · 还有 ${duration(left)} · ${batch} 条任务`;if(left<=300_000)tone='soon';}
+  }
+  $('#next-release-main').textContent=main;
+  $('#next-release-sub').textContent=tone==='warn'?'请先核对“结果待确认”的任务':tone==='soon'?'临近开抢：请勿演练、刷新日历或关闭专用 Edge':sub;
+  box.dataset.tone=tone;
 }
 function render(){
   const s=state.site;$('#login-status').textContent=s?`已检查：${s.accountName}`:'尚未检查登录';$('#login-status').classList.toggle('ok',!!s);
   // 1.2.14：同一台电脑可跑两个账号实例；页脚显示本页对应的数据目录与端口，避免两个窗口混淆。
   const inst=state.instance;
   $('#instance-label').textContent=inst?`实例 ${inst.dataDir} · 端口 ${inst.port} · 任务与登录资料保存在这台电脑`:'任务与登录资料保存在这台电脑';
-  if(inst)document.title='场边 · 羽毛球预约 · '+inst.port;
+  // 1.2.26：顶栏醒目标出账号与端口；账号2（非 data 目录）整页换用蓝色强调色，两个窗口并排时不易混淆。
+  const badge=$('#instance-badge');badge.hidden=!inst;
+  if(inst){
+    const label=instanceName(inst);badge.textContent=`${label}${s?' · '+s.accountName:''} · ${inst.port}`;
+    document.body.classList.toggle('instance-alt',inst.dataDir!=='data');document.title=`${label} · 场边 · 羽毛球预约 · ${inst.port}`;
+  }
+  renderCountdown();
   // 1.2.13：同一放号时刻可能有多条任务结果待确认，按任务逐条核对后才会解除暂停。
   const pending=state.tasks.filter(t=>t.status==='unknown');
   const paused=!!state.freeze||pending.length>0;
@@ -83,7 +150,7 @@ function render(){
   if(calendarData&&s&&calendarData.accountId!==s.accountId){calendarData=null;calendarNeedsRefresh=true;renderCalendar();}
 }
 async function refresh(){if(busy)return;try{const first=!token;state=await api('/api/state');token=state.localToken;render();if(first){document.querySelectorAll('button').forEach(b=>b.disabled=false);loadCalendar();}else if(calendarNeedsRefresh&&!state.busy&&!calendarLoading){calendarNeedsRefresh=false;loadCalendar();}}catch{toast('无法连接本机程序，请检查启动窗口是否仍在运行');}}
-async function run(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){toast(e.message);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);await refresh();}}
+async function run(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){toast(e.message);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);lastTaskKey='';await refresh();}}
 async function operateTask(t,action){
   let body={};if(action==='confirm'){const confirmation=prompt('请先在网站确认该次请求结果。恢复后该任务不会重发。\n请输入：我已在网站核对该次请求的结果，停止该任务并恢复后续任务');if(!confirmation)return;body={confirmation};}
   await run(async()=>{const j=await api(`/api/tasks/${t.id}/${action}`,body);toast(j.message||'操作完成');});
@@ -98,5 +165,5 @@ $('#sound').onchange=()=>{if($('#sound').checked){audio??=new AudioContext();aud
 for(let i=20;i<=46;i++){const t=String(Math.floor(i/2)).padStart(2,'0')+':'+(i%2?'30':'00');if(i<46)$('#start').append(new Option(t,t));if(i>20)$('#end').append(new Option(t,t));}
 $('#date').value=dateString(Date.now()+2*86400000);$('#date').min=dateString(Date.now());$('#start').value='19:00';$('#end').value='21:00';
 function preview(){const date=$('#date').value;if(!date)return;const release=Date.parse(date+'T00:00:00+08:00')-86400000;$('#release-preview').textContent=`开抢：${stamp(release)}${release<=Date.now()?'（已开放，启用后立即尝试）':''}`;}
-$('#date').onchange=preview;preview();setInterval(()=>{$('#clock').textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());},1000);
+$('#date').onchange=preview;preview();setInterval(()=>{$('#clock').textContent=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());renderCountdown();},1000);
 refresh();setInterval(refresh,1500);
