@@ -49,7 +49,7 @@ export function createApp(store:Store,site:Site,options:AppOptions={}){
         else if(url.pathname==='/api/calendar'){result=await engine.calendar(body.start,body.end);}
         else if(url.pathname==='/api/login'){
           const b=site as Site&{open?:()=>Promise<void>};await b.open?.();result={message:'请在专用Edge窗口扫码，然后返回检查登录'};
-        }else if(url.pathname==='/api/check'){result=await engine.inspect();lastError='';}
+        }else if(url.pathname==='/api/check'){result=await engine.inspect(undefined,{manual:true});lastError='';}
         else {
           const m=/^\/api\/tasks\/([\w-]+)\/(arm|cancel|rehearse|reconcile|confirm)$/.exec(url.pathname);
           if(!m){json(res,404,{error:'未找到此操作'});return;}
